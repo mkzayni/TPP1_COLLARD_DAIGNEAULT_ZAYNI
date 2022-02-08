@@ -28,7 +28,7 @@ if __name__ == '__main__':
         mesher = MeshGenerator()
         mesh_obj = mesher.rectangle([0.0, 2.0, 0.0, 1.0], mesh_parameters)
         plotter = MeshPlotter()
-        cas = Case(mesh_obj)
+        cas = Case(mesh_obj, 1)
         cas.compute_mesh_and_connectivity()
         cas.set_bc(bcdata)
         solver = MethodeVolumesFinisDiffusion(cas)

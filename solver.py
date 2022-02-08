@@ -8,152 +8,98 @@ class MethodeVolumesFinisDiffusion:
         self.mesh_obj = case.get_mesh()  # Maillage du cas
         self.bcdata = case.get_bc()  # Conditions frontières
 
-        self.centroids = np.zeros([self.mesh_obj.get_number_of_elements(), 1, 2])
-        self.find_centroids()
+        self.centroids = np.zeros([self.mesh_obj.get_number_of_elements(), 2])
+        self.areas = np.zeros([self.mesh_obj.get_number_of_elements(), 1])
+
+        self.dA = np.zeros([self.mesh_obj.get_number_of_faces(), 1])
+        self.dKSI = np.zeros([self.mesh_obj.get_number_of_faces(), 1])
+
+        # Pas necessaire à mon avis
+        """self.normals = np.zeros([self.mesh_obj.get_number_of_faces(), 1])
+        self.eKSI = np.zeros([self.mesh_obj.get_number_of_faces(), 1, 2])
+        self.eETA = np.zeros([self.mesh_obj.get_number_of_faces(), 1, 2])"""
+
+        self.preprocessing()
+        self.solve()
 
 
-
-        # Appeler les fonctions permettant de calculer les informations suivantes :
-        #   - la longueur des faces
-        #   - Calculer l'aire des éléments
-        #   - Déterminer le centre des faces ...
-
-    # Détermine les positions centrales des éléments touchant l'arête
-    def find_centroids(self):
-        for i_elem in range(self.mesh_obj.get_number_of_elements()):
-            # Détermine les numéros des noeuds pour l'élément
-            start, end = self.mesh_obj.element_to_nodes_start[i_elem], self.mesh_obj.element_to_nodes_start[i_elem + 1]
-            nodes = self.mesh_obj.element_to_nodes[start:end]
-
-            # Détermine les centroides des éléments par la moyenne des coordonnées
+    # Effectue les calculs relatifs au maillage préalablement à l'utilisation du solver
+    def preprocessing(self):
+        # Détermine les centroides de l'élément par la moyenne des coordonnées
+        def find_centroid(i_elem):
+            nodes = self.mesh_obj.get_element_to_nodes(i_elem)
             for i_node in nodes:
-                self.centroids[i_elem] += [self.mesh_obj.get_node_to_xycoord(i_node)[0],
-                                self.mesh_obj.get_node_to_xycoord(i_node)[1]]
+                x, y = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
+                self.centroids[i_elem][0] += x
+                self.centroids[i_elem][1] += y
 
             self.centroids[i_elem] /= len(nodes)
 
+        # Calcul l'aire de l'élément par une méthode utilisant les déterminants
+        def compute_area(i_elem):
+            nodes = self.mesh_obj.get_element_to_nodes(i_elem)
+            area_matrices = [np.zeros([2, 2]) for i in range(len(nodes))]
+            for i in range(len(nodes)):
+                x, y = self.mesh_obj.get_node_to_xycoord(nodes[i])[0], self.mesh_obj.get_node_to_xycoord(nodes[i])[1]
+                area_matrices[i][:][0] = [x, y]
+                area_matrices[i - 1][:][1] = [x, y]
 
-    """# Calcule les distances dx et dy entre les centres des éléments d'une arête ou entre
-    def compute_distances(self, i_face):
-        elements = self.mesh_obj.get_face_to_elements(i_face)  # Liste des éléments touchant l'arête
+            self.areas[i_elem] = np.sum([np.linalg.det(area_matrices[i]) for i in range(len(nodes))]) / 2.
 
-        # Dans le cas d'une arête interne (2 éléments)
-        if elements[1] != -1:
-            # Détermine les numéros des noeuds pour les éléments de gauche et de droite sous forme de 2 listes
-            start = [self.mesh_obj.element_to_nodes_start[elements[0]],
-                     self.mesh_obj.element_to_nodes_start[elements[1]]]
-            end = [self.mesh_obj.element_to_nodes_start[elements[0] + 1],
-                   self.mesh_obj.element_to_nodes_start[elements[1] + 1]]
-            nodes = [self.mesh_obj.element_to_nodes[start[0]:end[0]], self.mesh_obj.element_to_nodes[start[1]:end[1]]]
-        # Dans le cas d'une arête touchant une frontière (1 élément)
-        else:
-            # Détermine les numéros des noeuds pour l'élément de gauche et de l'arête sous forme de 2 listes
-            start = self.mesh_obj.element_to_nodes_start[elements[0]]
-            end = self.mesh_obj.element_to_nodes_start[elements[0] + 1]
-            nodes = [self.mesh_obj.element_to_nodes[start:end], self.mesh_obj.get_face_to_nodes(i_face)]
+        # Calcul la longueur de la face et sa normal (pas trop sure que c'est nécessaire de faire une fonction poru ca)
+        """def compute_lengths_and_unit_vectors(i_face):
+            nodes = self.mesh_obj.get_face_to_nodes(i_face)
+            elements = self.mesh_obj.get_face_to_elements(i_face)
 
-        # Détermine les positions centrales des éléments et la distance entre celles-ci
-        # center positions = (sum(xi)/nb_nodes et sum(yi)/nb_nodes) pour les 2 points à déterminer
-        # Calcule l'aire de l'élément de gauche
-        center_positions = np.zeros([2, 2])
-        area_matrix = [np.zeros([2, 2]) for i in range(len(nodes[0]))]
+            (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), \
+                                 self.mesh_obj.get_node_to_xycoord(nodes[1])
+            (xA, yA), (xP, yP) = self.centroids[elements[1]], self.centroids[elements[0]]
 
-        for i in range(len(nodes[0])):
-            i_nodes_left = nodes[0][i]
-            x, y = self.mesh_obj.get_node_to_xycoord(i_nodes_left)[0], self.mesh_obj.get_node_to_xycoord(i_nodes_left)[
-                1]
-            center_positions[0] += [x, y]
+            self.dA[i_face] = np.sqrt((xb - xa) ** 2 + (yb - ya) ** 2)
+            self.dKSI[i_face] = np.sqrt((xA - xP) ** 2 + (yA - yP) ** 2)
 
-            # Construit les matrices pour calculer l'aire
-            area_matrix[i][:][0] = [x, y]
-            area_matrix[i - 1][:][1] = [x, y]
+            self.normals[i_face] = np.array([(yb - ya) / self.dA[i_face], -(xb - xa) / self.dA[i_face]])
+            self.eKSI[i_face] = np.array([(xA - xP) / self.dKSI[i_face], (yA - yP) / self.dKSI[i_face]])
+            self.eETA[i_face] = np.array([(xb - xa) / self.dA[i_face], (yb - ya) / self.dKSI[i_face]])"""
 
-        for i_nodes_right in nodes[1]:
-            center_positions[1] += [self.mesh_obj.get_node_to_xycoord(i_nodes_right)[0],
-                                    self.mesh_obj.get_node_to_xycoord(i_nodes_right)[1]]
 
-        nb_nodes = np.array([len(nodes[0]), len(nodes[1])])
-        center_positions[0], center_positions[1] = center_positions[0] / nb_nodes[0], center_positions[1] / nb_nodes[1]
 
-        dx = center_positions[1][0] - center_positions[0][0]  # Xd - Xg
-        dy = center_positions[1][1] - center_positions[0][1]  # Yd - Yg
+        # Calculs pour les éléments (centres d'élément et aires)
+        for i_elem in range(self.mesh_obj.get_number_of_elements()):
+            find_centroid(i_elem)
+            compute_area(i_elem)
 
-        # Aire pour TRI ou QUAD de l'élément de gauche
-        self.areas[elements[0]] = np.sum([np.linalg.det(area_matrix[i]) for i in range(len(nodes[0]))]) / 2
+        # Calculs pour les faces (longueurs des face)
+        """for i_face in range(self.mesh_obj.get_number_of_faces()):
+            compute_lengths_and_unit_vectors(i_face)"""
 
-        return dx, dy, center_positions
-
-    # Calcule le vecteur normal au centre d'une arête
-    def compute_normal(self, i_face):
-        nodes = self.mesh_obj.get_face_to_nodes(i_face)
-        (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), self.mesh_obj.get_node_to_xycoord(nodes[1])
-        dA = np.sqrt((xb - xa) ** 2 + (yb - ya) ** 2)
-        normal = np.array([(yb - ya) / dA, -(xb - xa) / dA])
-
-        return normal
-
-    # Calcule le gradient du cas étudié
     def solve(self):
         # Itinitialisation des matrices
-        NTRI = self.mesh_obj.get_number_of_elements()
-        ATA = np.zeros((NTRI, 2, 2))
-        B = np.zeros((NTRI, 2))
-        dphi_exact = np.zeros((NTRI, 2))
-        self.areas = np.zeros(NTRI)
+        NELEM = self.mesh_obj.get_number_of_elements()
+        A = np.zeros((NELEM, NELEM))
+        B = np.zeros(NELEM)
 
-        # Remplissage des matrices pour le cas d'une condition frontière (Dirichlet ou Neumann)
-        for i_face in range(self.mesh_obj.get_number_of_boundary_faces()):
-            tag = self.mesh_obj.get_boundary_face_to_tag(i_face)  # Numéro de la frontière de la face
-            bc_type = self.bcdata[tag][0]  # Type de condition frontière (Dirichlet ou Neumann)
-            elements = self.mesh_obj.get_face_to_elements(i_face)  # Élément de la face
-
-            # Si Dirichlet ou Neumann
-            if bc_type != 'LIBRE':
-                # Détermination des positions des points et de la distance
-                dx, dy, center_positions = self.compute_distances(i_face)
-                Xtg, Ytg, Xta, Yta = center_positions[0][0], center_positions[0][1], center_positions[1][0], \
-                                     center_positions[1][1]
-                # Calcul du gradient
-                dphi = self.phi(Xta, Yta) - self.phi(Xtg, Ytg)
-
-                # Modification de la position du point sur l'arête si Neumann
-                if bc_type == 'NEUMANN':
-                    n = self.compute_normal(i_face)
-                    dx, dy = np.dot([dx, dy], n) * n
-                    Xan, Yan = np.array([Xtg + dx, Ytg + dy])
-                    dphi = self.phi(Xan, Yan) - self.phi(Xtg, Ytg)
-
-                ALS = np.array([[dx * dx, dx * dy], [dy * dx, dy * dy]])
-                ATA[elements[0]] += ALS
-
-                # Remplisage du membre de droite
-                B[elements[0]] += (np.array([dx, dy]) * dphi)
-
-                # Calcule la fonction analytique pour l'élément de gauche
-                dphi_exact[elements[0]] = [self.dphi_function[0](Xtg), self.dphi_function[1](Ytg)]
-
-        # Internal faces
+        # Remplissage de la matrice et du vecteur pour les faces internes
         for i_face in range(self.mesh_obj.get_number_of_boundary_faces(), self.mesh_obj.get_number_of_faces()):
+            nodes = self.mesh_obj.get_face_to_nodes(i_face)
             elements = self.mesh_obj.get_face_to_elements(i_face)
-            dx, dy, center_positions = self.compute_distances(i_face)
 
-            # Remplissage de la matrice ATA pour l'arête interne
-            ALS = np.array([[dx * dx, dx * dy], [dy * dx, dy * dy]])
-            ATA[elements[0]] += ALS
-            ATA[elements[1]] += ALS
+            (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), \
+                                 self.mesh_obj.get_node_to_xycoord(nodes[1])
+            (xA, yA), (xP, yP) = self.centroids[elements[1]], self.centroids[elements[0]]
 
-            # Remplisage du membre de droite
-            Xtg, Ytg, Xtd, Ytd = center_positions[0][0], center_positions[0][1], center_positions[1][0], \
-                                 center_positions[1][1]
-            dphi = self.phi(Xtd, Ytd) - self.phi(Xtg, Ytg)
-            B[elements[0]] += (np.array([dx, dy]) * dphi)
-            B[elements[1]] += (np.array([dx, dy]) * dphi)
+            dx, dy = (xb - xa), (yb - ya)
+            dA = np.sqrt(dx ** 2 + dy ** 2)
+            dKSI = np.sqrt((xA - xP) ** 2 + (yA - yP) ** 2)
 
-            # Calcule la fonction analytique pour l'élément de gauche
-            dphi_exact[elements[0]] = [self.dphi_function[0](Xtg), self.dphi_function[1](Ytg)]
+            n = np.array([(yb - ya) / dA, -(xb - xa) / dA])
+            eKSI = np.array([(xA - xP) / dKSI, (yA - yP) / dKSI])
+            eETA = np.array([(xb - xa) / dA, (yb - ya) / dA])
 
-        ATAI = np.array([np.linalg.inv(ATA[i_tri]) for i_tri in range(NTRI)])
-        GRAD = np.array([np.dot(ATAI[i_tri], B[i_tri]) for i_tri in range(NTRI)])
+            PNKSI = np.dot(n, eKSI)  # Projection de n sur ξ
+            PKSIETA = np.dot(eKSI, eETA)  # Projection de ξ sur η
 
-        self.case.set_solutions(GRAD, dphi_exact, self.areas)
-"""
+            D = (1/PNKSI)*self.case.get_gamma()*(dA/dKSI)  # Direct gradient term
+
+            # Calculer le criss-diffusion term...
+
