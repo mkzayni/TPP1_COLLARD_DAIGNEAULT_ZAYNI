@@ -19,22 +19,22 @@ if __name__ == '__main__':
     post_traitement = PostTraitement('Versteeg 4.2')
 
     # Données du problème
-    L = 0.2      # m
+    L = 0.02     # m
     gamma = 0.5  # W/mK
-    q = 0  # W/m³ (doit être à 1000000 pour le 4.2)
+    q = 1000000. # W/m³ (doit être à 1000000 pour le 4.2)
     TA = 100     # °C
     TB = 200     # °C
 
-    for facteur in [5]:
+    for facteur in [1]:  # Ajouter des facteurs pour modifier le niveau de rafinement
         # Création du maillage pour la conception du solver
-        mesh_parameters = {'mesh_type': 'TRI',
-                           'Nx': 10,
-                           'Ny': 10
+        mesh_parameters = {'mesh_type': 'QUAD',
+                           'Nx': facteur*100,
+                           'Ny': facteur*5
                            }
         bcdata = (['DIRICHLET', TA], ['NEUMANN', 0], ['DIRICHLET', TB], ['NEUMANN', 0])
 
         mesher = MeshGenerator()
-        mesh_obj = mesher.rectangle([0.0, L, 0.0, L], mesh_parameters)
+        mesh_obj = mesher.rectangle([0.0, L, 0.0, 0.5*L], mesh_parameters)
         plotter = MeshPlotter()
 
         # Initialisation du cas
@@ -65,13 +65,12 @@ if __name__ == '__main__':
 
 
     # Affichage de champ scalaire avec pyvista du dernier maillage
-
     nodes, elements = plotter.prepare_data_for_pyvista(cas.get_mesh())
     pv_mesh = pv.PolyData(nodes, elements)
-    pv_mesh['PHI'] = solution
+    pv_mesh['Température'] = solution
 
     pl = pvQt.BackgroundPlotter()
-    pl.add_mesh(pv_mesh, show_edges=True, scalars='PHI', cmap="RdBu")
+    pl.add_mesh(pv_mesh, show_edges=True, scalars='Température', cmap="RdBu")
     pl.show()
-    plt.plot(1,1)
+    plt.plot(1,1)  # Petit hack pour Audrey, sinon la fenetre de PyVista se ferme x)
     plt.show()
