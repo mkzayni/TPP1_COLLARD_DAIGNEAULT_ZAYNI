@@ -3,10 +3,11 @@ import numpy as np
 
 # Solveur utilisant la méthode des volumes finis avec diffusion seulement
 class MethodeVolumesFinisDiffusion:
-    def __init__(self, case):
+    def __init__(self, case, cross_diffusion):
         self.case = case  # Cas à résoudre
-        self.mesh_obj = case.get_mesh()  # Maillage du cas
-        self.bcdata = case.get_bc()  # Conditions frontières
+        self.mesh_obj = case.get_mesh()         # Maillage du cas
+        self.bcdata = case.get_bc()             # Conditions frontières
+        self.cross_diffusion = cross_diffusion  # Si le terme de cross diffusion est activé
 
         self.centroids = np.zeros([self.mesh_obj.get_number_of_elements(), 2])
         self.areas = np.zeros([self.mesh_obj.get_number_of_elements(), 1])
@@ -20,7 +21,6 @@ class MethodeVolumesFinisDiffusion:
         self.eETA = np.zeros([self.mesh_obj.get_number_of_faces(), 1, 2])"""
 
         self.preprocessing()
-        self.solve()
 
 
     # Effectue les calculs relatifs au maillage préalablement à l'utilisation du solver
@@ -79,6 +79,42 @@ class MethodeVolumesFinisDiffusion:
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
 
+        for i_face in range(self.mesh_obj.get_number_of_boundary_faces()):
+            tag = self.mesh_obj.get_boundary_face_to_tag(i_face)  # Numéro de la frontière de la face
+            bc_type = self.bcdata[tag][0]  # Type de condition frontière (Dirichlet ou Neumann)
+            bc_value = self.bcdata[tag][1]
+            nodes = self.mesh_obj.get_face_to_nodes(i_face)
+            elements = self.mesh_obj.get_face_to_elements(i_face)  # Élément de la face
+            (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), \
+                                 self.mesh_obj.get_node_to_xycoord(nodes[1])
+            (xA, yA), (xP, yP) = ((xa + xb)/2, (ya + yb)/2), self.centroids[elements[0]]
+            dx, dy = (xb - xa), (yb - ya)
+            dA = np.sqrt(dx ** 2 + dy ** 2)
+            dKSI = np.sqrt((xA - xP) ** 2 + (yA - yP) ** 2)
+
+            n = np.array([(yb - ya) / dA, -(xb - xa) / dA])
+            eKSI = np.array([(xA - xP) / dKSI, (yA - yP) / dKSI])
+            eETA = np.array([(xb - xa) / dA, (yb - ya) / dA])
+
+            PNKSI = np.dot(n, eKSI)  # Projection de n sur ξ
+            PKSIETA = np.dot(eKSI, eETA)  # Projection de ξ sur η
+
+
+            if bc_type == "DIRICHLET":
+                D = (1/PNKSI)*self.case.get_gamma()*(dA/dKSI)  # Direct gradient term
+
+                # Calculer le cross-diffusion term ici pour dirichlet ici...
+                if self.cross_diffusion is True:
+                    Sdc = 0
+
+
+                A[elements[0], elements[0]] += D
+                B[elements[0]] += self.case.source_term*self.areas[elements[0]] + Sdc
+
+            elif bc_type == "NEUMANN":
+                B[elements[0]] += self.case.get_gamma()*bc_value*dA
+
+
         # Remplissage de la matrice et du vecteur pour les faces internes
         for i_face in range(self.mesh_obj.get_number_of_boundary_faces(), self.mesh_obj.get_number_of_faces()):
             nodes = self.mesh_obj.get_face_to_nodes(i_face)
@@ -101,5 +137,22 @@ class MethodeVolumesFinisDiffusion:
 
             D = (1/PNKSI)*self.case.get_gamma()*(dA/dKSI)  # Direct gradient term
 
-            # Calculer le criss-diffusion term...
+            # Calculer le cross-diffusion term ici pour les faces internes...
+            if self.cross_diffusion is True:
+                Sdc = 0
 
+
+            # Remplissage de la matrice et du vecteur
+            A[elements[0], elements[0]] += D
+            A[elements[1], elements[1]] += D
+            A[elements[0], elements[1]] -= D
+            A[elements[1], elements[0]] -= D
+
+            B[elements[0]] += self.case.source_term*self.areas[elements[0]] + Sdc
+            B[elements[1]] += self.case.source_term*self.areas[elements[1]] - Sdc
+
+
+
+        PHI = np.dot(np.linalg.inv(A),B)
+
+        self.case.set_solution(PHI, self.areas)

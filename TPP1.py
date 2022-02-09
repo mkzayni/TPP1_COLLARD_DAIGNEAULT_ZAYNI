@@ -15,41 +15,39 @@ from post_traitement import PostTraitement
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    post_traitement = PostTraitement('Q2')
+    #-----------------------------------------  Cas 1 - Versteeg 4.2 ------------------------------------------------#
+    post_traitement = PostTraitement('Versteeg 4.2')
+
+    # Données du problème
+    L = 0.2      # m
+    gamma = 0.5  # W/mK
+    q = 1000000  # W/m³
+    TA = 100     # °C
+    TB = 200     # °C
 
     for facteur in [5]:
-        # Création du maillage pour la conception du solver (rectangle simple)
+        # Création du maillage pour la conception du solver
         mesh_parameters = {'mesh_type': 'TRI',
-                           'Nx': 2,
-                           'Ny': 2
+                           'Nx': 50,
+                           'Ny': 50
                            }
-        bcdata = (['DIRICHLET', 1], ['DIRICHLET', 0], ['DIRICHLET', 5], ['DIRICHLET', 0],)
+        bcdata = (['DIRICHLET', TA], ['NEUMANN', 0], ['DIRICHLET', TB], ['NEUMANN', 0])
 
         mesher = MeshGenerator()
-        mesh_obj = mesher.rectangle([0.0, 2.0, 0.0, 1.0], mesh_parameters)
+        mesh_obj = mesher.rectangle([0.0, L, 0.0, 0.5*L], mesh_parameters)
         plotter = MeshPlotter()
-        cas = Case(mesh_obj, 1)
+
+        # Initialisation du cas
+        cas = Case(mesh_obj, gamma, source_term=q)
         cas.compute_mesh_and_connectivity()
         cas.set_bc(bcdata)
-        solver = MethodeVolumesFinisDiffusion(cas)
 
-
+        cross_diffusion = False
+        solver = MethodeVolumesFinisDiffusion(cas, cross_diffusion)
+        solver.solve()
+        solution, area = cas.get_solutions()
 
         """
-        # Création du maillage (Cercle dans un rectangle non structuré)
-        mesh_parameters = {'mesh_type': 'MIX',
-                           'lc_rectangle': facteur*0.05,
-                           'lc_circle': facteur*0.01
-                           }
-        rayon = 0.25
-        mesher = MeshGenerator()
-        mesh_obj = mesher.circle([0.0, 2.0, 0.0, 1.0], rayon, mesh_parameters)
-
-        # Initialisation du cas étudié
-        cas = Case(mesh_obj, nb_trou=1)
-        cas.compute_mesh_and_connectivity()
-
-
         # Question 2 : Reconstruction du gradient par moindres carrées
         phi = lambda x, y: np.sin(x) + np.cos(y)
         dphi_analytical = [lambda x: np.cos(x), lambda y: -np.sin(y)]
@@ -58,8 +56,8 @@ if __name__ == '__main__':
         bcdata = (['DIRICHLET'], ['DIRICHLET'], ['DIRICHLET'], ['DIRICHLET'], ['NEUMANN'])
         cas.set_bc(bcdata)
         solver = MethodeVolumesFinisDiffusion(cas, phi, dphi_analytical)
-        solver.solve()
-        solution, analytical, area = cas.get_solutions()
+        
+        
 
         post_traitement.set_data(cas)
 
@@ -67,14 +65,13 @@ if __name__ == '__main__':
 
 
     # Affichage de champ scalaire avec pyvista du dernier maillage
-    plotter.plot_mesh(mesh_obj, label_points=True, label_elements=True, label_faces=True)
 
-    """plotter = MeshPlotter()
     nodes, elements = plotter.prepare_data_for_pyvista(cas.get_mesh())
     pv_mesh = pv.PolyData(nodes, elements)
-    pv_mesh['Gradient'] = solution
+    pv_mesh['PHI'] = solution
 
     pl = pvQt.BackgroundPlotter()
-    pl.add_mesh(pv_mesh, show_edges=True, scalars='Gradient', cmap="RdBu")
-    pl.show()"""
+    pl.add_mesh(pv_mesh, show_edges=True, scalars='PHI', cmap="RdBu")
+    pl.show()
+    plt.plot(1,1)
     plt.show()
