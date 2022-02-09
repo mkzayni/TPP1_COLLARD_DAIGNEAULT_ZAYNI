@@ -78,6 +78,7 @@ class MethodeVolumesFinisDiffusion:
         NELEM = self.mesh_obj.get_number_of_elements()
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
+        Sdc = 0  # Cross-diffusion term reste nul si False
 
         for i_face in range(self.mesh_obj.get_number_of_boundary_faces()):
             tag = self.mesh_obj.get_boundary_face_to_tag(i_face)  # Numéro de la frontière de la face
@@ -109,7 +110,7 @@ class MethodeVolumesFinisDiffusion:
 
 
                 A[elements[0], elements[0]] += D
-                B[elements[0]] += self.case.source_term*self.areas[elements[0]] + Sdc
+                B[elements[0]] += D*bc_value + Sdc
 
             elif bc_type == "NEUMANN":
                 B[elements[0]] += self.case.get_gamma()*bc_value*dA
@@ -148,11 +149,13 @@ class MethodeVolumesFinisDiffusion:
             A[elements[0], elements[1]] -= D
             A[elements[1], elements[0]] -= D
 
-            B[elements[0]] += self.case.source_term*self.areas[elements[0]] + Sdc
-            B[elements[1]] += self.case.source_term*self.areas[elements[1]] - Sdc
+            B[elements[0]] += Sdc
+            B[elements[1]] -= Sdc
 
+        # Ajout de la contribution du terme source
+        for i_elem in range(self.mesh_obj.get_number_of_elements()):
+            B[i_elem] += self.case.source_term*self.areas[i_elem]
 
-
-        PHI = np.dot(np.linalg.inv(A),B)
+        PHI = np.linalg.solve(A, B)
 
         self.case.set_solution(PHI, self.areas)

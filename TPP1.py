@@ -21,20 +21,20 @@ if __name__ == '__main__':
     # Données du problème
     L = 0.2      # m
     gamma = 0.5  # W/mK
-    q = 1000000  # W/m³
+    q = 0  # W/m³ (doit être à 1000000 pour le 4.2)
     TA = 100     # °C
     TB = 200     # °C
 
     for facteur in [5]:
         # Création du maillage pour la conception du solver
         mesh_parameters = {'mesh_type': 'TRI',
-                           'Nx': 50,
-                           'Ny': 50
+                           'Nx': 10,
+                           'Ny': 10
                            }
         bcdata = (['DIRICHLET', TA], ['NEUMANN', 0], ['DIRICHLET', TB], ['NEUMANN', 0])
 
         mesher = MeshGenerator()
-        mesh_obj = mesher.rectangle([0.0, L, 0.0, 0.5*L], mesh_parameters)
+        mesh_obj = mesher.rectangle([0.0, L, 0.0, L], mesh_parameters)
         plotter = MeshPlotter()
 
         # Initialisation du cas
