@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # Données du problème
     L = 0.02     # m
     gamma = 0.5  # W/mK
-    q = 1000000. # W/m³ (doit être à 1000000 pour le 4.2)
+    q = 1000000  # W/m³
     TA = 100     # °C
     TB = 200     # °C
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         cas.compute_mesh_and_connectivity()
         cas.set_bc(bcdata)
 
-        cross_diffusion = False
+        cross_diffusion = True # Flase
         solver = MethodeVolumesFinisDiffusion(cas, cross_diffusion)
         solver.solve()
         solution, area = cas.get_solutions()
