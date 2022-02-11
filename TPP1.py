@@ -27,9 +27,9 @@ if __name__ == '__main__':
 
     for facteur in [1]:  # Ajouter des facteurs pour modifier le niveau de rafinement
         # Création du maillage pour la conception du solver
-        mesh_parameters = {'mesh_type': 'QUAD',
-                           'Nx': facteur*100,
-                           'Ny': facteur*5
+        mesh_parameters = {'mesh_type': 'MIX',
+                           'Nx': facteur*50,
+                           'Ny': facteur*10
                            }
         bcdata = (['DIRICHLET', TA], ['NEUMANN', 0], ['DIRICHLET', TB], ['NEUMANN', 0])
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         cas.compute_mesh_and_connectivity()
         cas.set_bc(bcdata)
 
-        cross_diffusion = True # Flase
+        cross_diffusion = True
         solver = MethodeVolumesFinisDiffusion(cas, cross_diffusion)
         solver.solve()
         solution, area = cas.get_solutions()

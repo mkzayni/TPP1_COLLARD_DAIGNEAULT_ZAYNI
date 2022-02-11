@@ -19,19 +19,35 @@ class MethodeVolumesFinisDiffusion:
 
     # Effectue les calculs relatifs au maillage préalablement à l'utilisation du solver
     def preprocessing(self):
-        # Détermine les centroides de l'élément par la moyenne des coordonnées
-        def find_centroid(i_elem):
+        # Détermine les centroides et l'aire de l'élément par les déterminants
+        def compute_centroid_and_volume(i_elem):
             nodes = self.mesh_obj.get_element_to_nodes(i_elem)
-            N_nodes=len(nodes)
+            area_matrices = [np.zeros([2, 2]) for i in range(len(nodes))]
+            for i in range(len(nodes)):
+                x, y = self.mesh_obj.get_node_to_xycoord(nodes[i])[0], self.mesh_obj.get_node_to_xycoord(nodes[i])[1]
+                area_matrices[i][:, 0] = [x, y]
+                area_matrices[i - 1][:, 1] = [x, y]
+
+            # Calcule l'aire de l'élément
+            self.volumes[i_elem] = np.sum([np.linalg.det(area_matrices[i]) for i in range(len(nodes))]) / 2
+            cx = (np.sum([np.sum(area_matrices[i][0, :]) * np.linalg.det(area_matrices[i]) for i in range(len(nodes))])/
+                    (6*self.volumes[i_elem]))
+            cy = (np.sum([np.sum(area_matrices[i][1, :]) * np.linalg.det(area_matrices[i]) for i in range(len(nodes))])/
+                    (6*self.volumes[i_elem]))
+
+            self.centroids[i_elem] = [cx, cy]
+
+
+            """N_nodes=len(nodes)
             #Cas Triangle
-            if(N_nodes==3):
-                for i_node in nodes:
-                    x, y = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
-                    self.centroids[i_elem][0] += x
-                    self.centroids[i_elem][1] += y
-    
-                self.centroids[i_elem] /= len(nodes)
-            """
+            #if(N_nodes==3):
+            for i_node in nodes:
+                x, y = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
+                self.centroids[i_elem][0] += x
+                self.centroids[i_elem][1] += y
+
+            self.centroids[i_elem] /= len(nodes)
+
             #Cas QUAD
             elif(N_nodes>3):
                 #Calcul de A
@@ -49,21 +65,9 @@ class MethodeVolumesFinisDiffusion:
                 print("centroide")
                 print(self.centroids[i_elem])
                 """
-        # Calcul l'aire de l'élément par une méthode utilisant les déterminants
-        def compute_area(i_elem):
-            nodes = self.mesh_obj.get_element_to_nodes(i_elem)
-            area_matrices = [np.zeros([2, 2]) for i in range(len(nodes))]
-            for i in range(len(nodes)):
-                x, y = self.mesh_obj.get_node_to_xycoord(nodes[i])[0], self.mesh_obj.get_node_to_xycoord(nodes[i])[1]
-                area_matrices[i][:][0] = [x, y]
-                area_matrices[i - 1][:][1] = [x, y]
-
-            self.volumes[i_elem] = np.sum([np.linalg.det(area_matrices[i]) for i in range(len(nodes))]) / 2.
-
         # Calculs pour les éléments (centres d'élément et aires)
         for i_elem in range(self.mesh_obj.get_number_of_elements()):
-            find_centroid(i_elem)
-            compute_area(i_elem)
+            compute_centroid_and_volume(i_elem)
 
     def solve(self):
         # Itinitialisation des matrices et du terme de cross-diffusion
@@ -71,14 +75,13 @@ class MethodeVolumesFinisDiffusion:
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
         PHI = np.zeros(NELEM)
-        GRAD=np.zeros((NELEM,2))
+        GRAD = np.zeros((NELEM, 2))
         gamma = self.case.get_gamma()
         Sdc = 0  # Cross-diffusion term reste nul si False
         it = 0
 
         solver_moindrescarres = GradientMoindresCarres(self.case)
         solver_moindrescarres.set_centroids_and_volumes(self.centroids, self.volumes)
-
 
         if self.cross_diffusion is True:
             it = 3
@@ -124,14 +127,11 @@ class MethodeVolumesFinisDiffusion:
                 if bc_type == "DIRICHLET":
                     D = (1 / PNKSI) * gamma * (dA / dKSI)  # Direct gradient term
 
-                    ###### Calculer le cross-diffusion term ici pour dirichlet ici...
                     # Calcule le terme correction de cross-diffusion si activé
                     if self.cross_diffusion is True:
-                        #Sdc = 0-gamma*(PKSIETA/PNKSI)*(self.GRAD[element[1]]+self.GRAD[element[0]])/2 * eETA * dA
-                        """
-                        Sdc = 0-gamma*(PKSIETA/PNKSI)*(np.dot(GRAD[element,:],n)) *dA
-                        
-                        """
+                        Sdc = 0 # Semble toujours être 0 si condition limite constante sur la face?????
+                        #Sdc = 0-gamma*(PKSIETA/PNKSI)*(np.dot(GRAD[element,:],n)) *dA
+
                     A[element, element] += D
                     B[element] += D * bc_value + Sdc
                 elif bc_type == "NEUMANN":
@@ -157,7 +157,7 @@ class MethodeVolumesFinisDiffusion:
                 ###### Calculer le cross-diffusion term ici pour dirichlet ici...
                 # Calcule le terme correction de cross-diffusion si activé
                 if self.cross_diffusion is True:
-                    Sdc = 0 -gamma*(PKSIETA/PNKSI)*np.dot((GRAD[elements[1]]+GRAD[elements[0]])/2, eETA) * dA
+                    Sdc = -gamma*(PKSIETA/PNKSI)*np.dot((GRAD[elements[1]]+GRAD[elements[0]])/2, eETA) * dA
 
                 # Remplissage de la matrice et du vecteur
                 A[elements[0], elements[0]] += D
@@ -175,11 +175,9 @@ class MethodeVolumesFinisDiffusion:
             PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
             
             solver_moindrescarres.set_phi(PHI)
-            GRAD = solver_moindrescarres.solve() #J'ai juste changer GRAD qu'il soit une variable locale au lieu d'un attribut
+            GRAD = solver_moindrescarres.solve()
 
         self.case.set_solution(PHI, self.volumes)
-
-
 
 
 class GradientMoindresCarres:
@@ -195,18 +193,6 @@ class GradientMoindresCarres:
     def set_phi(self, phi):
         self.phi = phi
 
-    def get_solution(self):
-        return self.GRAD
-
-    # Calcule le vecteur normal au centre d'une arête
-    def compute_normal(self, i_face):
-        nodes = self.mesh_obj.get_face_to_nodes(i_face)
-        (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), self.mesh_obj.get_node_to_xycoord(nodes[1])
-        dA = np.sqrt((xb - xa)**2 + (yb - ya)**2)
-        normal = np.array([(yb - ya)/dA, -(xb - xa)/dA])
-
-        return normal
-
     # Calcule le gradient du cas étudié
     def solve(self):
         # Itinitialisation des matrices
@@ -218,33 +204,42 @@ class GradientMoindresCarres:
         for i_face in range(self.mesh_obj.get_number_of_boundary_faces()):
             tag = self.mesh_obj.get_boundary_face_to_tag(i_face)  # Numéro de la frontière de la face
             bc_type, bc_value = self.bcdata[tag]  # Condition frontière (Dirichlet ou Neumann)
-            elements = self.mesh_obj.get_face_to_elements(i_face)  # Élément de la face
+            element = self.mesh_obj.get_face_to_elements(i_face)[0]  # Élément de la face
 
             # Si Dirichlet ou Neumann
             # Détermination des positions des points et de la distance
-            dx, dy = self.centroids[elements[0]] - self.centroids[elements[1]]
+
+            nodes = self.mesh_obj.get_face_to_nodes(i_face)
+            xa = (self.mesh_obj.get_node_to_xycoord(nodes[0])[0] + self.mesh_obj.get_node_to_xycoord(nodes[1])[0]) /2.
+            ya = (self.mesh_obj.get_node_to_xycoord(nodes[0])[1] + self.mesh_obj.get_node_to_xycoord(nodes[1])[1]) /2.
+            xb, yb = self.centroids[element][0], self.centroids[element][1]
+            dx, dy = xb - xa, yb - ya
 
             # Calcul du gradient
-            dphi = bc_value - self.phi[elements[0]]
+            if bc_type == 'DIRICHLET':
+                dphi = bc_value - self.phi[element]
 
             # Modification de la position du point sur l'arête si Neumann
             if bc_type == 'NEUMANN':
-                n = self.compute_normal(i_face)
+                nodes = self.mesh_obj.get_face_to_nodes(i_face)
+                (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), self.mesh_obj.get_node_to_xycoord(
+                    nodes[1])
+                dA = np.sqrt((xb - xa) ** 2 + (yb - ya) ** 2)
+                n = np.array([(yb - ya) / dA, -(xb - xa) / dA])
+
                 dx, dy = np.dot([dx, dy], n) * n
-                dphi = bc_value
+                dphi = np.dot([dx, dy], n) * bc_value
 
             ALS = np.array([[dx * dx, dx * dy], [dy * dx, dy * dy]])
-            ATA[elements[0]] += ALS
+            ATA[element] += ALS
 
             # Remplisage du membre de droite
-            B[elements[0]] += (np.array([dx, dy]) * dphi)
-
-
+            B[element] += (np.array([dx, dy]) * dphi)
 
         # Internal faces
         for i_face in range(self.mesh_obj.get_number_of_boundary_faces(), self.mesh_obj.get_number_of_faces()):
             elements = self.mesh_obj.get_face_to_elements(i_face)
-            dx, dy = self.centroids[elements[1]] = self.centroids[elements[0]]
+            dx, dy = self.centroids[elements[1]] - self.centroids[elements[0]]
 
             # Remplissage de la matrice ATA pour l'arête interne
             ALS = np.array([[dx * dx, dx * dy], [dy * dx, dy * dy]])
@@ -256,9 +251,8 @@ class GradientMoindresCarres:
             B[elements[0]] += (np.array([dx, dy]) * dphi)
             B[elements[1]] += (np.array([dx, dy]) * dphi)
 
-
-
         ATAI = np.array([np.linalg.inv(ATA[i_tri]) for i_tri in range(NTRI)])
         GRAD = np.array([np.dot(ATAI[i_tri], B[i_tri]) for i_tri in range(NTRI)])
-        return GRAD #Retourner la valeur au lieu de changer l'attribut
+
+        return GRAD
 
