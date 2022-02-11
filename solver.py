@@ -22,13 +22,33 @@ class MethodeVolumesFinisDiffusion:
         # Détermine les centroides de l'élément par la moyenne des coordonnées
         def find_centroid(i_elem):
             nodes = self.mesh_obj.get_element_to_nodes(i_elem)
-            for i_node in nodes:
-                x, y = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
-                self.centroids[i_elem][0] += x
-                self.centroids[i_elem][1] += y
-
-            self.centroids[i_elem] /= len(nodes)
-
+            N_nodes=len(nodes)
+            #Cas Triangle
+            if(N_nodes==3):
+                for i_node in nodes:
+                    x, y = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
+                    self.centroids[i_elem][0] += x
+                    self.centroids[i_elem][1] += y
+    
+                self.centroids[i_elem] /= len(nodes)
+            """
+            #Cas QUAD
+            elif(N_nodes>3):
+                #Calcul de A
+                A=0
+                for i_node in nodes-1:
+                    x1, y1 = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
+                    x2, y2 = self.mesh_obj.get_node_to_xycoord(i_node+1)[0], self.mesh_obj.get_node_to_xycoord(i_node+1)[1]
+                    A+=0.5*(x1*y2-x2*y1)
+                #Calcul coordonnes Centroide
+                for i_node in nodes-1:
+                    x1, y1 = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
+                    x2, y2 = self.mesh_obj.get_node_to_xycoord(i_node+1)[0], self.mesh_obj.get_node_to_xycoord(i_node+1)[1]
+                    self.centroids[i_elem][0] += (1.0/6.0*A)*(x1+x2)*(x1*y2-x2*y1)
+                    self.centroids[i_elem][1] += (1.0/6.0*A)*(y1+y2)*(x1*y2-x2*y1)
+                print("centroide")
+                print(self.centroids[i_elem])
+                """
         # Calcul l'aire de l'élément par une méthode utilisant les déterminants
         def compute_area(i_elem):
             nodes = self.mesh_obj.get_element_to_nodes(i_elem)
@@ -51,12 +71,13 @@ class MethodeVolumesFinisDiffusion:
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
         PHI = np.zeros(NELEM)
+        GRAD=np.zeros((NELEM,2))
         gamma = self.case.get_gamma()
         Sdc = 0  # Cross-diffusion term reste nul si False
         it = 0
 
-        #solver_moindrescarres = GradientMoindresCarres(self.case)
-        #solver_moindrescarres.set_centroids_and_volumes(self.centroids, self.volumes)
+        solver_moindrescarres = GradientMoindresCarres(self.case)
+        solver_moindrescarres.set_centroids_and_volumes(self.centroids, self.volumes)
 
 
         if self.cross_diffusion is True:
@@ -106,8 +127,11 @@ class MethodeVolumesFinisDiffusion:
                     ###### Calculer le cross-diffusion term ici pour dirichlet ici...
                     # Calcule le terme correction de cross-diffusion si activé
                     if self.cross_diffusion is True:
-                        Sdc = 0 #-gamma*(PKSIETA/PNKSI)*(self.GRAD[elements[1]]+self.GRAD[elements[0]])/2 * eETA * dA
-
+                        #Sdc = 0-gamma*(PKSIETA/PNKSI)*(self.GRAD[element[1]]+self.GRAD[element[0]])/2 * eETA * dA
+                        """
+                        Sdc = 0-gamma*(PKSIETA/PNKSI)*(np.dot(GRAD[element,:],n)) *dA
+                        
+                        """
                     A[element, element] += D
                     B[element] += D * bc_value + Sdc
                 elif bc_type == "NEUMANN":
@@ -133,7 +157,7 @@ class MethodeVolumesFinisDiffusion:
                 ###### Calculer le cross-diffusion term ici pour dirichlet ici...
                 # Calcule le terme correction de cross-diffusion si activé
                 if self.cross_diffusion is True:
-                    Sdc = 0 #-gamma*(PKSIETA/PNKSI)*np.dot((self.GRAD[elements[1]]+self.GRAD[elements[0]])/2, eETA) * dA
+                    Sdc = 0 -gamma*(PKSIETA/PNKSI)*np.dot((GRAD[elements[1]]+GRAD[elements[0]])/2, eETA) * dA
 
                 # Remplissage de la matrice et du vecteur
                 A[elements[0], elements[0]] += D
@@ -149,18 +173,15 @@ class MethodeVolumesFinisDiffusion:
 
             # Résolution du problème
             PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
-
-            #solver_moindrescarres.set_phi(PHI)
-            #solver_moindrescarres.solve()
-            #self.GRAD = solver_moindrescarres.get_solution()
-
-
+            
+            solver_moindrescarres.set_phi(PHI)
+            GRAD = solver_moindrescarres.solve() #J'ai juste changer GRAD qu'il soit une variable locale au lieu d'un attribut
 
         self.case.set_solution(PHI, self.volumes)
 
 
 
-"""# Solveur utilisant la métode des moindres carrés pour calculer le gradient
+
 class GradientMoindresCarres:
     def __init__(self, case):
         self.case = case                 # Cas à résoudre
@@ -239,6 +260,5 @@ class GradientMoindresCarres:
 
         ATAI = np.array([np.linalg.inv(ATA[i_tri]) for i_tri in range(NTRI)])
         GRAD = np.array([np.dot(ATAI[i_tri], B[i_tri]) for i_tri in range(NTRI)])
-"""
-
+        return GRAD #Retourner la valeur au lieu de changer l'attribut
 
