@@ -13,6 +13,7 @@ from solver import MethodeVolumesFinisDiffusion
 from case import Case
 from post_traitement import PostTraitement
 import matplotlib.pyplot as plt
+import sympy as sp
 
 if __name__ == '__main__':
     #-----------------------------------------  Cas 1 - Versteeg 4.2 ------------------------------------------------#
@@ -77,9 +78,16 @@ if __name__ == '__main__':
     axy = 1/2.
 
     # L'équation manufacturée à un /L... mais ça ne donne pas les bons résultats...
-    def MMS(x, y):
-        T = T0 + Tx*np.cos(ax*np.pi*x) + Ty*np.sin(ay*np.pi*y) + Txy*np.sin(axy*np.pi*x*y)
-        return T
+    # def MMS(x, y):
+    #     T = T0 + Tx*np.cos(ax*np.pi*x) + Ty*np.sin(ay*np.pi*y) + Txy*np.sin(axy*np.pi*x*y)
+    #     return T
+    
+    # Récupérer les MMS et les dériver
+    x,y = sp.symbols('x y')
+    T_MMS=T0 + Tx*sp.cos((ax*np.pi*x)/L)+Ty*sp.sin((ay*np.pi*y)/H)+Txy*sp.sin((axy*np.pi*x*y)/(L*H))
+    f_T_MMS = sp.lambdify([x,y], T_MMS, "numpy")
+    source = sp.diff(sp.diff(T_MMS,x),x)+sp.diff(sp.diff(T_MMS,y),y)
+    f_source = sp.lambdify([x,y], source, "numpy")
 
     """# Test de la MMS
     GRIDx = np.linspace(0,5,500)
@@ -94,16 +102,22 @@ if __name__ == '__main__':
     plt.colorbar(c)"""
 
     # Le terme source ne fonctionne pas !
-    def q(x,y): return MMS(x,y)
+    def q(x,y):
+        source=f_source(x,y)
+        return source
+    
+    def MMS(x,y):
+        T=f_T_MMS(x,y)
+        return T
+    
 
-    for facteur in [1]:  # Ajouter des facteurs pour modifier le niveau de rafinement
+    for facteur in [1,2,4]:  # Ajouter des facteurs pour modifier le niveau de rafinement
         # Création du maillage pour la conception du solver
         mesh_parameters = {'mesh_type': 'QUAD',
-                           'Nx': 75,
-                           'Ny': 75
+                           'Nx': facteur*20,
+                           'Ny': facteur*20
                            }
-        bcdata = (['DIRICHLET', MMS], ['DIRICHLET', MMS], ['DIRICHLET', MMS], ['DIRICHLET', MMS])
-
+        bcdata = (['DIRICHLET', MMS], ['DIRICHLET',MMS], ['DIRICHLET', MMS], ['DIRICHLET', MMS])
         mesher = MeshGenerator()
         mesh_obj = mesher.rectangle([0.0, L, 0.0, H], mesh_parameters)
         plotter = MeshPlotter()
@@ -117,9 +131,9 @@ if __name__ == '__main__':
         solver.solve()
         solution, area = cas2.get_solutions()
 
-        #post_traitement.set_data(cas2)
+        post_traitement.set_data(cas2)
 
-    #post_traitement.genere_graphiques()
+    post_traitement.genere_graphiques()
 
     # Affichage de champ scalaire avec pyvista du dernier maillage
     nodes, elements = plotter.prepare_data_for_pyvista(cas2.get_mesh())
