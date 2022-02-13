@@ -17,7 +17,7 @@ class PostTraitement:
     def set_data(self, case):
         self.data.append({'n': case.get_mesh().get_number_of_nodes(),
                           'phi_num': case.get_solutions()[0],
-                          'phi_exact': case.get_analytical_solution(),
+                          'phi_exact': case.get_solutions()[2],
                           'area': case.get_solutions()[1]})
 
     # Génère les graphiques demandés
@@ -27,7 +27,7 @@ class PostTraitement:
             total_area = np.sum(self.data[i]['area'])
             area, n = self.data[i]['area'], self.data[i]['n']
             phi_num, phi_exact = self.data[i]['phi_num'], self.data[i]['phi_exact']
-            E_L2 = np.sqrt(np.sum(area*(phi_num- phi_exact)**2)/total_area)
+            E_L2 = np.sqrt(np.sum(area*(phi_num - phi_exact)**2)/total_area)
             self.data[i]['err_L2'] = E_L2
             self.data[i]['h'] = np.sqrt(total_area/n)
 

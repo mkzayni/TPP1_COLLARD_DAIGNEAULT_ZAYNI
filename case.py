@@ -3,11 +3,11 @@ from meshConnectivity import MeshConnectivity
 # Cas étudié regroupant le maillage, les conditions frontières, l'utilisation d'un solver
 # et la solution calculée.
 class Case:
-    def __init__(self, mesh_obj, gamma, source_term, analytical_solution=0):
+    def __init__(self, mesh_obj, gamma, source_term, analytical_function=0):
         self.mesh_obj = mesh_obj                        # Maillage de la géométrie
         self.gamma = gamma                              # Coefficient diffusif
         self.source_term = source_term                  # Terme source
-        self.analytical_solution = analytical_solution  # Solution analytique
+        self.analytical_function = analytical_function  # Fonction analytique
 
     # Exécute la connectivité avec le maillage généré.
     def compute_mesh_and_connectivity(self):
@@ -19,9 +19,10 @@ class Case:
         self.bcdata = bcdata
 
     # Enregistre la solution numérique et analytique puis l'aire des cellules
-    def set_solution(self, solution, area):
+    def set_solution(self, solution, area, analytical_solution):
         self.solution = solution
         self.area = area
+        self.analytical_solution = analytical_solution
 
     # Permet d'obtenir le maillage du cas étudié
     def get_mesh(self):
@@ -36,9 +37,9 @@ class Case:
         return self.gamma
 
     # Permet de retourner la fonction de la solution analytique
-    def get_analytical_solution(self):
-        return self.analytical_solution
+    def get_analytical_function(self):
+        return self.analytical_function
 
     # Retourne la solution numérique et analytique puis l'aire des cellules
     def get_solutions(self):
-        return self.solution, self.area
+        return self.solution, self.area, self.analytical_solution

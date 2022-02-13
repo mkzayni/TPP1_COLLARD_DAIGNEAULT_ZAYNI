@@ -76,6 +76,7 @@ class MethodeVolumesFinisDiffusion:
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
         PHI = np.zeros(NELEM)
+        PHI_EX = np.zeros(NELEM)
         GRAD = np.zeros((NELEM, 2))
         gamma = self.case.get_gamma()
         Sdc = 0  # Cross-diffusion term reste nul si False
@@ -175,10 +176,12 @@ class MethodeVolumesFinisDiffusion:
                 B[elements[0]] += Sdc
                 B[elements[1]] -= Sdc
 
-            # Ajout de la contribution du terme source sur les éléments
+            # Ajout de la contribution du terme source sur les éléments et calcul de la solution analytique
             for i_elem in range(self.mesh_obj.get_number_of_elements()):
                 B[i_elem] += self.volumes[i_elem] * self.case.source_term(self.centroids[i_elem][0],
                                                                           self.centroids[i_elem][1])
+                PHI_EX[i_elem] = self.case.get_analytical_function()(self.centroids[i_elem][0],
+                                                                     self.centroids[i_elem][1])
 
             # Résolution du problème
             PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
@@ -186,7 +189,7 @@ class MethodeVolumesFinisDiffusion:
             solver_moindrescarres.set_phi(PHI)
             GRAD = solver_moindrescarres.solve()
 
-        self.case.set_solution(PHI, self.volumes)
+        self.case.set_solution(PHI, self.volumes, PHI_EX)
 
 
 class GradientMoindresCarres:

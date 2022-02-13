@@ -117,19 +117,19 @@ if __name__ == '__main__':
                            'Nx': facteur*20,
                            'Ny': facteur*20
                            }
-        bcdata = (['DIRICHLET', MMS], ['DIRICHLET',MMS], ['DIRICHLET', MMS], ['DIRICHLET', MMS])
+        bcdata = (['DIRICHLET', MMS], ['DIRICHLET', MMS], ['DIRICHLET', MMS], ['DIRICHLET', MMS])
         mesher = MeshGenerator()
         mesh_obj = mesher.rectangle([0.0, L, 0.0, H], mesh_parameters)
         plotter = MeshPlotter()
 
         # Initialisation du cas
-        cas2 = Case(mesh_obj, gamma=1, source_term=q, analytical_solution=MMS)
+        cas2 = Case(mesh_obj, gamma=1, source_term=q, analytical_function=MMS)
         cas2.compute_mesh_and_connectivity()
         cas2.set_bc(bcdata)
 
         solver = MethodeVolumesFinisDiffusion(cas2, cross_diffusion=True)
         solver.solve()
-        solution, area = cas2.get_solutions()
+        solution, area, analytical = cas2.get_solutions()
 
         post_traitement.set_data(cas2)
 
