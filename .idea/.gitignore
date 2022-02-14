@@ -7,3 +7,7 @@
 /dataSources/
 /dataSources.local.xml
 *.pyc
+*.png
+*.xml
+.idea/*
+__pycache__/*

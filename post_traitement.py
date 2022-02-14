@@ -26,11 +26,11 @@ class PostTraitement:
     def show_solutions(self, mesh, title, save_path):
         Figure1, (NUM, EX) = plt.subplots(1, 2, figsize=(20, 8))
 
-        Figure1.suptitle(title)
+        Figure1.suptitle(title + f" avec {self.data[mesh]['n']} éléments")
 
         # Set levels of color for the colorbar
         levels = np.linspace(np.min([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]),
-                             np.max([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]), num=25)
+                             np.max([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]), num=30)
 
         c = NUM.tricontourf(self.data[mesh]['position'][:, 0],
                             self.data[mesh]['position'][:, 1],
@@ -46,7 +46,7 @@ class PostTraitement:
         plt.colorbar(c, ax=EX)
         EX.set_xlabel("L (m)")
         EX.set_ylabel("H (m)")
-        EX.set_title("Solution analytique MMS")
+        EX.set_title("Solution analytique MMS/analytique")
 
         plt.savefig(save_path, dpi=200)
 
@@ -92,14 +92,14 @@ class PostTraitement:
             Coupe_Y(Centres, Y_Coupe, self.data[mesh]['phi_num'], self.data[mesh]['phi_exact'])
 
         COUPEX.plot(Solution_coupeX, Elem_ds_coupeX[:, 1], label="Solution Numérique")
-        COUPEX.plot(SolutionEX_coupeX, Elem_ds_coupeX[:, 1], label="Solution MMS")
+        COUPEX.plot(SolutionEX_coupeX, Elem_ds_coupeX[:, 1], '--', label="Solution MMS")
         COUPEX.set_xlabel("Température")
         COUPEX.set_ylabel("Y (m)")
         COUPEX.set_title(f"Solution dans une coupe à X = {X_Coupe}")
         COUPEX.legend()
 
         COUPEY.plot(Elem_ds_coupeY[:, 0], Solution_coupeY, label="Solution Numérique")
-        COUPEY.plot(Elem_ds_coupeY[:, 0], SolutionEX_coupeY, label="Solution MMS")
+        COUPEY.plot(Elem_ds_coupeY[:, 0], SolutionEX_coupeY, '--', label="Solution MMS/analytique")
         COUPEY.set_xlabel("X (m)")
         COUPEY.set_ylabel("Température")
         COUPEY.set_title(f"Solution dans une coupe à Y = {Y_Coupe}")
@@ -115,7 +115,7 @@ class PostTraitement:
 
         # Set levels of color for the colorbar
         levels = np.linspace(np.min(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])),
-                             np.max(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])), num=25)
+                             np.max(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])), num=30)
 
         center1 = self.data[mesh1[0]]['position']
         c = plot1.tricontourf(center1[:, 0], center1[:, 1], self.data[mesh1[0]]['phi_num'], levels=levels)
@@ -135,10 +135,10 @@ class PostTraitement:
         # Enregistrer
         plt.savefig(save_path, dpi=200)
 
-    def show_time(self, save_path):
-        Figure1, (Comp) = plt.subplots(1, 1, figsize=(15, 10))
+    def show_time(self, title, save_path):
+        Figure1, (Comp) = plt.subplots(figsize=(15, 10))
 
-        Figure1.suptitle("Comparaison Temps de calculs")
+        Figure1.suptitle(title)
 
         taille = np.zeros(len(self.data))
         Time_Dense = np.zeros(len(self.data))
