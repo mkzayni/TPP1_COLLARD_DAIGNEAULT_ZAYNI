@@ -16,6 +16,7 @@ class Case:
         self.gamma = gamma                              # Coefficient diffusif
         self.source_term = source_term                  # Terme source
         self.analytical_function = analytical_function  # Fonction analytique
+        self.time = {}
 
     # Exécute la connectivité avec le maillage généré.
     def compute_mesh_and_connectivity(self):
@@ -27,10 +28,15 @@ class Case:
         self.bcdata = bcdata
 
     # Enregistre la solution numérique et analytique puis l'aire des cellules
-    def set_solution(self, solution, area, analytical_solution):
+    def set_solution(self, solution, analytical_solution, area, centroid):
         self.solution = solution
-        self.area = area
         self.analytical_solution = analytical_solution
+        self.area = area
+        self.centroid = centroid
+
+    # Enregistre les temps avec une sparse et dense matrice
+    def set_resolution_time(self, matrix_type, time):
+        self.time[matrix_type] = time
 
     # Permet d'obtenir le maillage du cas étudié
     def get_mesh(self):
@@ -50,4 +56,10 @@ class Case:
 
     # Retourne la solution numérique et analytique puis l'aire des cellules
     def get_solutions(self):
-        return self.solution, self.area, self.analytical_solution
+        return self.solution, self.analytical_solution
+
+    def get_areas_and_centroids(self):
+        return self.area, self.centroid
+
+    def get_times(self):
+        return self.time

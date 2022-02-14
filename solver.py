@@ -7,6 +7,7 @@ Utilité : TPP1 - Méthode des volumes finis avec diffusion
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse.linalg.dsolve import linsolve
+from timeit import default_timer as timer
 
 
 # Solveur utilisant la méthode des volumes finis avec diffusion seulement
@@ -19,8 +20,11 @@ class MethodeVolumesFinisDiffusion:
 
         self.centroids = np.zeros([self.mesh_obj.get_number_of_elements(), 2])  # Array des centroides
         self.volumes = np.zeros([self.mesh_obj.get_number_of_elements()])       # Array de l'aire des elements
+        self.time = []
 
         self.preprocessing()
+
+
 
     # Effectue les calculs relatifs au maillage préalablement à l'utilisation du solver
     def preprocessing(self):
@@ -44,40 +48,12 @@ class MethodeVolumesFinisDiffusion:
 
             self.centroids[i_elem] = [cx, cy]
 
-            """N_nodes=len(nodes)
-            #Cas Triangle
-            #if(N_nodes==3):
-            for i_node in nodes:
-                x, y = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
-                self.centroids[i_elem][0] += x
-                self.centroids[i_elem][1] += y
-
-            self.centroids[i_elem] /= len(nodes)
-
-            #Cas QUAD
-            elif(N_nodes>3):
-                #Calcul de A
-                A=0
-                for i_node in nodes-1:
-                    x1, y1 = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
-                    x2, y2 = self.mesh_obj.get_node_to_xycoord(i_node+1)[0], self.mesh_obj.get_node_to_xycoord(i_node+1)[1]
-                    A+=0.5*(x1*y2-x2*y1)
-                #Calcul coordonnes Centroide
-                for i_node in nodes-1:
-                    x1, y1 = self.mesh_obj.get_node_to_xycoord(i_node)[0], self.mesh_obj.get_node_to_xycoord(i_node)[1]
-                    x2, y2 = self.mesh_obj.get_node_to_xycoord(i_node+1)[0], self.mesh_obj.get_node_to_xycoord(i_node+1)[1]
-                    self.centroids[i_elem][0] += (1.0/6.0*A)*(x1+x2)*(x1*y2-x2*y1)
-                    self.centroids[i_elem][1] += (1.0/6.0*A)*(y1+y2)*(x1*y2-x2*y1)
-                print("centroide")
-                print(self.centroids[i_elem])
-                """
-
         # Calculs pour les éléments (centres d'élément et aires)
         for i_elem in range(self.mesh_obj.get_number_of_elements()):
             compute_centroid_and_volume(i_elem)
 
-    def solve(self,_Methode):
-        # Itinitialisation des matrices et du terme de cross-diffusion
+    def solve(self, matrix_type="SPARSE"):
+        # Initialisation des matrices et du terme de cross-diffusion
         NELEM = self.mesh_obj.get_number_of_elements()
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
@@ -86,13 +62,15 @@ class MethodeVolumesFinisDiffusion:
         GRAD = np.zeros((NELEM, 2))
         gamma = self.case.get_gamma()
         Sdc = 0  # Cross-diffusion term reste nul si False
-        it = 0
+        it = 1
+        time = timer()
 
         solver_moindrescarres = GradientMoindresCarres(self.case)
         solver_moindrescarres.set_centroids_and_volumes(self.centroids, self.volumes)
 
         if self.cross_diffusion is True:
             it = 3
+
 
         for i in range(it):
             # Calcule les distances et vecteurs nécessaires selon les coordonnées fournies
@@ -190,15 +168,17 @@ class MethodeVolumesFinisDiffusion:
                                                                      self.centroids[i_elem][1])
 
             # Résolution du problème suivant la méthode choisie pour mesurer le temps
-            if(_Methode=="SPARSE"):
+            if matrix_type == "SPARSE":
                 PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
-            elif(_Methode=="DENSE"):
-                PHI=np.linalg.solve(A,B)
+            elif matrix_type == "DENSE":
+                PHI = np.linalg.solve(A, B)
 
             solver_moindrescarres.set_phi(PHI)
             GRAD = solver_moindrescarres.solve()
 
-        self.case.set_solution(PHI, self.volumes, PHI_EX)
+        self.case.set_solution(PHI, PHI_EX, self.volumes, self.centroids)
+        time = timer() - time
+        self.case.set_resolution_time(matrix_type, time)
 
 
 class GradientMoindresCarres:
