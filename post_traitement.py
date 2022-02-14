@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 
-
 class PostTraitement:
     def __init__(self, exemple):
         self.exemple = exemple  # Nom de l'exemple post-traité
@@ -25,7 +24,7 @@ class PostTraitement:
 
     # Génère les graphiques des solutions numérique et analytique
     def show_solutions(self, mesh, title, save_path):
-        Figure1, (NUM, EX) = plt.subplots(1, 2, dpi=200)
+        Figure1, (NUM, EX) = plt.subplots(1, 2, figsize=(20, 8))
 
         Figure1.suptitle(title)
 
@@ -49,8 +48,7 @@ class PostTraitement:
         EX.set_ylabel("H (m)")
         EX.set_title("Solution analytique MMS")
 
-        Figure1.tight_layout()
-        plt.savefig(save_path)
+        plt.savefig(save_path, dpi=200)
 
     def show_plan_solutions(self, mesh, title, save_path, X_Coupe, Y_Coupe):
         # Chercher l'indice des éléments à un X donné
@@ -60,7 +58,7 @@ class PostTraitement:
             Analytique_coupe = []
             eps = 1e-6  # Précision
             for i in range(len(Coordonnees)):
-                if (np.abs(Coordonnees[i, 0] - X) < eps):
+                if np.abs(Coordonnees[i, 0] - X) < eps:
                     Elements_ds_coupe.append(Coordonnees[i, :])
                     Solution_coupe.append(Solution[i])
                     Analytique_coupe.append(Analytique[i])
@@ -82,7 +80,7 @@ class PostTraitement:
             Solution_coupe = np.array(Solution_coupe)
             return Elements_ds_coupe, Solution_coupe, Analytique_coupe
 
-        Figure1, (COUPEX, COUPEY) = plt.subplots(1, 2, dpi=200)
+        Figure1, (COUPEX, COUPEY) = plt.subplots(1, 2, figsize=(20, 8))
 
         Figure1.suptitle(title)
 
@@ -107,13 +105,11 @@ class PostTraitement:
         COUPEY.set_title(f"Solution dans une coupe à Y = {Y_Coupe}")
         COUPEY.legend()
 
-        Figure1.tight_layout()
-
         # Enregistrer
-        plt.savefig(save_path)
+        plt.savefig(save_path, dpi=200)
 
     def show_mesh_differences(self, mesh1, mesh2, title, save_path):
-        figure, (plot1, plot2) = plt.subplots(1, 2, dpi=200)
+        figure, (plot1, plot2) = plt.subplots(1, 2, figsize=(20, 8))
 
         figure.suptitle(title)
 
@@ -135,13 +131,12 @@ class PostTraitement:
         plot2.set_title(f"{mesh2[1]} à {self.data[mesh2[0]]['n']} éléments")
         plt.colorbar(c, ax=plot2)
 
-        figure.tight_layout()
 
         # Enregistrer
-        plt.savefig(save_path)
+        plt.savefig(save_path, dpi=200)
 
     def show_time(self, save_path):
-        Figure1, (Comp) = plt.subplots(1, 1, dpi=200)
+        Figure1, (Comp) = plt.subplots(1, 1, figsize=(15, 10))
 
         Figure1.suptitle("Comparaison Temps de calculs")
 
@@ -160,9 +155,8 @@ class PostTraitement:
         Comp.grid()
         Comp.legend()
 
-        Figure1.tight_layout()
 
-        plt.savefig(save_path)
+        plt.savefig(save_path, dpi=200)
 
     def show_error(self):
         # Calcul l'erreur (en x), l'ajoute aux données et détermine l'ordre de convergence
