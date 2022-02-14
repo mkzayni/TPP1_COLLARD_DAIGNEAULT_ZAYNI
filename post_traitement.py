@@ -1,7 +1,7 @@
 """
-Date :    2 février 2022
-Auteurs : Audrey Collard-Daigneault (1920374) & Zacharie Prigent (2096785)
-Utilité : Post-traitement pour afficher les résultats numériques et analytiques
+Date :    8 février 2022
+Auteurs : Audrey Collard-Daigneault (1920374) & Mohamad Karim Zayni (2167132)
+Utilité : TPP1 - Méthode des volumes finis avec diffusion
 """
 
 import numpy as np
@@ -26,7 +26,7 @@ class PostTraitement:
         for i in range(len(self.data)):
             total_area = np.sum(self.data[i]['area'])
             area, n = self.data[i]['area'], self.data[i]['n']
-            phi_num, phi_exact = self.data[i]['phi_num'], self.data[i]['phi_exact']
+c            phi_num, phi_exact = self.data[i]['phi_num'], self.data[i]['phi_exact']
             E_L2 = np.sqrt(np.sum(area*(phi_num - phi_exact)**2)/total_area)
             self.data[i]['err_L2'] = E_L2
             self.data[i]['h'] = np.sqrt(total_area/n)

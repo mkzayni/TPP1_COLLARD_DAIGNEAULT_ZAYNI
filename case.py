@@ -1,3 +1,11 @@
+"""
+Date :    8 février 2022
+Auteurs : Audrey Collard-Daigneault (1920374) & Mohamad Karim Zayni (2167132)
+Utilité : TPP1 - Méthode des volumes finis avec diffusion
+
+
+"""
+
 from meshConnectivity import MeshConnectivity
 
 # Cas étudié regroupant le maillage, les conditions frontières, l'utilisation d'un solver

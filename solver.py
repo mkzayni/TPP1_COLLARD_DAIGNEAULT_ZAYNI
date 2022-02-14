@@ -1,3 +1,9 @@
+"""
+Date :    8 février 2022
+Auteurs : Audrey Collard-Daigneault (1920374) & Mohamad Karim Zayni (2167132)
+Utilité : TPP1 - Méthode des volumes finis avec diffusion
+"""
+
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse.linalg.dsolve import linsolve
@@ -70,7 +76,7 @@ class MethodeVolumesFinisDiffusion:
         for i_elem in range(self.mesh_obj.get_number_of_elements()):
             compute_centroid_and_volume(i_elem)
 
-    def solve(self):
+    def solve(self,_Methode):
         # Itinitialisation des matrices et du terme de cross-diffusion
         NELEM = self.mesh_obj.get_number_of_elements()
         A = np.zeros((NELEM, NELEM))
@@ -183,8 +189,11 @@ class MethodeVolumesFinisDiffusion:
                 PHI_EX[i_elem] = self.case.get_analytical_function()(self.centroids[i_elem][0],
                                                                      self.centroids[i_elem][1])
 
-            # Résolution du problème
-            PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
+            # Résolution du problème suivant la méthode choisie pour mesurer le temps
+            if(_Methode=="SPARSE"):
+                PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
+            elif(_Methode=="DENSE"):
+                PHI=np.linalg.solve(A,B)
 
             solver_moindrescarres.set_phi(PHI)
             GRAD = solver_moindrescarres.solve()
