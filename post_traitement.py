@@ -29,9 +29,13 @@ class PostTraitement:
 
         Figure1.suptitle(title)
 
+        # Set levels of color for the colorbar
+        levels = np.linspace(np.min([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]),
+                             np.max([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]), num=25)
+
         c = NUM.tricontourf(self.data[mesh]['position'][:, 0],
                             self.data[mesh]['position'][:, 1],
-                            self.data[mesh]['phi_num'])
+                            self.data[mesh]['phi_num'], levels=levels)
         plt.colorbar(c, ax=NUM)
         NUM.set_xlabel("L (m)")
         NUM.set_ylabel("H (m)")
@@ -39,7 +43,7 @@ class PostTraitement:
 
         c = EX.tricontourf(self.data[mesh]['position'][:, 0],
                            self.data[mesh]['position'][:, 1],
-                           self.data[mesh]['phi_exact'])
+                           self.data[mesh]['phi_exact'], levels=levels)
         plt.colorbar(c, ax=EX)
         EX.set_xlabel("L (m)")
         EX.set_ylabel("H (m)")
@@ -113,15 +117,19 @@ class PostTraitement:
 
         figure.suptitle(title)
 
+        # Set levels of color for the colorbar
+        levels = np.linspace(np.min(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])),
+                             np.max(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])), num=25)
+
         center1 = self.data[mesh1[0]]['position']
-        c = plot1.tricontourf(center1[:, 0], center1[:, 1], self.data[mesh1[0]]['phi_num'])
+        c = plot1.tricontourf(center1[:, 0], center1[:, 1], self.data[mesh1[0]]['phi_num'], levels=levels)
         plot1.set_xlabel("L (m)")
         plot1.set_ylabel("H (m)")
         plot1.set_title(f"{mesh1[1]} à {self.data[mesh1[0]]['n']} éléments")
         plt.colorbar(c, ax=plot1)
 
         center2 = self.data[mesh2[0]]['position']
-        c = plot2.tricontourf(center2[:, 0], center2[:, 1], self.data[mesh2[0]]['phi_num'])
+        c = plot2.tricontourf(center2[:, 0], center2[:, 1], self.data[mesh2[0]]['phi_num'], levels=levels)
         plot2.set_xlabel("L (m)")
         plot2.set_ylabel("H (m)")
         plot2.set_title(f"{mesh2[1]} à {self.data[mesh2[0]]['n']} éléments")
