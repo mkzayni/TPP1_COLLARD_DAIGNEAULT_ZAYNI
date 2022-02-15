@@ -12,6 +12,35 @@ from timeit import default_timer as timer
 
 # Solveur utilisant la méthode des volumes finis avec diffusion seulement
 class MethodeVolumesFinisDiffusion:
+    """
+    Méthode de volumes finis pour un problème de diffusion.
+
+    Parmeters
+    ---------
+    exempmle: case
+        L'exemple en cours de traitement
+    
+    cross_diffusion: bool
+        pour activer ou désactiver la considération des termes Sdc
+
+    Attributes
+    ----------
+    mesh_obj: mesh
+        Maillage du problème
+    
+    bcdata: liste de float et str.
+        Type + valeur des conditions aux limites imposées. 
+    
+    centroid: ndarray float.
+        la position des centres des éléments
+        
+    volumes: ndarray float.
+        surface des éléments
+        
+    time: dictionnaire str/float.
+        Temps de calcul correspondant à la méthode utilisé
+
+    """
     def __init__(self, case, cross_diffusion):
         self.case = case  # Cas à résoudre
         self.mesh_obj = case.get_mesh()  # Maillage du cas
@@ -28,6 +57,18 @@ class MethodeVolumesFinisDiffusion:
 
     # Effectue les calculs relatifs au maillage préalablement à l'utilisation du solver
     def preprocessing(self):
+        """
+        Effectue les calculs relatifs au maillage préalablement à l'utilisation du solver
+
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        
+        """
         # Détermine les centroides et l'aire de l'élément par les déterminants
         def compute_centroid_and_volume(i_elem):
             nodes = self.mesh_obj.get_element_to_nodes(i_elem)
@@ -53,6 +94,19 @@ class MethodeVolumesFinisDiffusion:
             compute_centroid_and_volume(i_elem)
 
     def solve(self, matrix_type="SPARSE"):
+        """
+        Solveur Volumes Finis 
+        
+        Parameters
+        ----------
+        matrix_type: str
+            méthode de résolution
+        
+        Returns
+        -------
+        None
+        
+        """
         # Initialisation des matrices et des vecteurs
         NELEM = self.mesh_obj.get_number_of_elements()
         A = np.zeros((NELEM, NELEM))
@@ -189,6 +243,25 @@ class MethodeVolumesFinisDiffusion:
 
 # Solveur utilisant la méthode des moindres carrés pour reconstruire le gradient
 class GradientMoindresCarres:
+    """
+    Solveur utilisant la méthode des moindres carrés pour reconstruire le gradient
+.
+
+    Parmeters
+    ---------
+    exempmle: case
+        L'exemple en cours de traitement
+    
+
+    Attributes
+    ----------
+    mesh_obj: mesh
+        Maillage du problème
+    
+    bcdata: liste de float et str.
+        Type + valeur des conditions aux limites imposées. 
+
+    """
     def __init__(self, case):
         self.case = case                 # Cas à résoudre
         self.mesh_obj = case.get_mesh()  # Maillage du cas
@@ -196,15 +269,61 @@ class GradientMoindresCarres:
 
     # Définis les positions des centroides et l'aire des éléments
     def set_centroids_and_volumes(self, centroids, volumes):
+        """
+        Définis les positions des centroides et l'aire des éléments
+        
+        Parameters
+        ----------
+        centroids: ndarray float
+            Positions des centres des éléments
+            
+        volumes: ndarray float
+            Surfaces des éléments
+        
+        Returns
+        -------
+        None
+        
+        """
         self.centroids = centroids
         self.volumes = volumes
 
     # Définis les valeurs calculées au centre des éléments
     def set_phi(self, phi):
+        """
+        Définis les valeurs calculées au centre des éléments
+        
+        Parameters
+        ----------
+        phi: ndarray float
+            Positions de la variable aux centres des éléments
+            
+        
+        Returns
+        -------
+        None
+        
+        """
         self.phi = phi
 
     # Calcule le gradient du cas étudié
     def solve(self):
+        
+        """
+        Calcule le gradient du cas étudié
+        
+        Parameters
+        ----------
+        None
+            
+        
+        Returns
+        -------
+        GRAD: ndarray
+            Gradient reconstruit avec la méthode des moindres carrées
+        
+        """
+        
         # Initialisation des matrices
         NTRI = self.mesh_obj.get_number_of_elements()
         ATA = np.zeros((NTRI, 2, 2))
