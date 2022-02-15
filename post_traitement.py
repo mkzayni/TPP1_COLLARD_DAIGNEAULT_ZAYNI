@@ -1,7 +1,7 @@
 """
 Date :    8 février 2022
 Auteurs : Audrey Collard-Daigneault (1920374) & Mohamad Karim Zayni (2167132)
-Utilité : TPP1 - Méthode des volumes finis avec diffusion
+Utilité : Effectuer le post-traitement des données
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ from matplotlib.offsetbox import AnchoredText
 class PostTraitement:
     def __init__(self, exemple):
         self.exemple = exemple  # Nom de l'exemple post-traité
-        self.data = []  # Initialisation du dictionnaire de données
+        self.data = []          # Initialisation du dictionnaire de données
 
     # Ajoute les données selon un nombre d'éléments'
     def set_data(self, case):
@@ -32,6 +32,7 @@ class PostTraitement:
         levels = np.linspace(np.min([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]),
                              np.max([self.data[mesh]['phi_num'], self.data[mesh]['phi_exact']]), num=30)
 
+        # Solution numérique
         c = NUM.tricontourf(self.data[mesh]['position'][:, 0],
                             self.data[mesh]['position'][:, 1],
                             self.data[mesh]['phi_num'], levels=levels)
@@ -40,6 +41,7 @@ class PostTraitement:
         NUM.set_ylabel("H (m)")
         NUM.set_title("Solution numérique")
 
+        # Solution analytique/MMS
         c = EX.tricontourf(self.data[mesh]['position'][:, 0],
                            self.data[mesh]['position'][:, 1],
                            self.data[mesh]['phi_exact'], levels=levels)
@@ -51,14 +53,14 @@ class PostTraitement:
         plt.savefig(save_path, dpi=200)
 
     def show_plan_solutions(self, mesh, title, save_path, X_Coupe, Y_Coupe):
-        # Chercher l'indice des éléments à un X donné
-        def Coupe_X(Coordonnees, X, Solution, Analytique):
+        # Chercher l'indice des éléments à un X ou Y donné
+        def Coupe_X(Coordonnees, X, Solution, Analytique, Plan):
             Elements_ds_coupe = []
             Solution_coupe = []
             Analytique_coupe = []
             eps = 1e-6  # Précision
             for i in range(len(Coordonnees)):
-                if np.abs(Coordonnees[i, 0] - X) < eps:
+                if np.abs(Coordonnees[i, Plan] - X) < eps:
                     Elements_ds_coupe.append(Coordonnees[i, :])
                     Solution_coupe.append(Solution[i])
                     Analytique_coupe.append(Analytique[i])
@@ -66,30 +68,16 @@ class PostTraitement:
             Solution_coupe = np.array(Solution_coupe)
             return Elements_ds_coupe, Solution_coupe, Analytique_coupe
 
-        def Coupe_Y(Coordonnees, Y, Solution, Analytique):
-            Elements_ds_coupe = []
-            Solution_coupe = []
-            Analytique_coupe = []
-            eps = 1e-6  # Précision
-            for i in range(len(Coordonnees)):
-                if (np.abs(Coordonnees[i, 1] - Y) < eps):
-                    Elements_ds_coupe.append(Coordonnees[i, :])
-                    Solution_coupe.append(Solution[i])
-                    Analytique_coupe.append(Analytique[i])
-            Elements_ds_coupe = np.array(Elements_ds_coupe)
-            Solution_coupe = np.array(Solution_coupe)
-            return Elements_ds_coupe, Solution_coupe, Analytique_coupe
-
-        Figure1, (COUPEX, COUPEY) = plt.subplots(1, 2, figsize=(20, 8))
+        Figure1, (COUPEX, COUPEY) = plt.subplots(1, 2, figsize=(20, 6))
 
         Figure1.suptitle(title)
 
         Centres = self.data[mesh]['position']
 
         Elem_ds_coupeX, Solution_coupeX, SolutionEX_coupeX = \
-            Coupe_X(Centres, X_Coupe, self.data[mesh]['phi_num'], self.data[mesh]['phi_exact'])
+            Coupe_X(Centres, X_Coupe, self.data[mesh]['phi_num'], self.data[mesh]['phi_exact'], 0)
         Elem_ds_coupeY, Solution_coupeY, SolutionEX_coupeY = \
-            Coupe_Y(Centres, Y_Coupe, self.data[mesh]['phi_num'], self.data[mesh]['phi_exact'])
+            Coupe_X(Centres, Y_Coupe, self.data[mesh]['phi_num'], self.data[mesh]['phi_exact'], 1)
 
         COUPEX.plot(Solution_coupeX, Elem_ds_coupeX[:, 1], label="Solution Numérique")
         COUPEX.plot(SolutionEX_coupeX, Elem_ds_coupeX[:, 1], '--', label="Solution MMS")
@@ -108,14 +96,17 @@ class PostTraitement:
         # Enregistrer
         plt.savefig(save_path, dpi=200)
 
-    def show_mesh_differences(self, mesh1, mesh2, title, save_path):
-        figure, (plot1, plot2) = plt.subplots(1, 2, figsize=(20, 8))
+    def show_mesh_differences(self, mesh1, mesh2, title, save_path, diff=False):
+
+        if diff is True:
+            figure, (plot1, plot2, plot3) = plt.subplots(1, 3, figsize=(28, 6))
+        else:
+            figure, (plot1, plot2) = plt.subplots(1, 2, figsize=(20, 6))
 
         figure.suptitle(title)
-
         # Set levels of color for the colorbar
         levels = np.linspace(np.min(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])),
-                             np.max(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])), num=30)
+                             np.max(np.append(self.data[mesh1[0]]['phi_num'], self.data[mesh2[0]]['phi_num'])), num=40)
 
         center1 = self.data[mesh1[0]]['position']
         c = plot1.tricontourf(center1[:, 0], center1[:, 1], self.data[mesh1[0]]['phi_num'], levels=levels)
@@ -130,6 +121,17 @@ class PostTraitement:
         plot2.set_ylabel("H (m)")
         plot2.set_title(f"{mesh2[1]} à {self.data[mesh2[0]]['n']} éléments")
         plt.colorbar(c, ax=plot2)
+
+        if diff is True:
+            err = np.abs(self.data[mesh1[0]]['phi_num'] - self.data[mesh2[0]]['phi_num'])
+
+            levels = np.linspace(np.min(err), np.max(err), num=40)
+
+            c = plot3.tricontourf(center1[:, 0], center1[:, 1], err, levels=levels)
+            plot3.set_xlabel("L (m)")
+            plot3.set_ylabel("H (m)")
+            plot3.set_title(f"Erreur absolue entre les maillages à {self.data[mesh1[0]]['n']} éléments")
+            plt.colorbar(c, ax=plot3)
 
 
         # Enregistrer
@@ -154,7 +156,6 @@ class PostTraitement:
         Comp.set_ylabel("Temps de résolution (s)")
         Comp.grid()
         Comp.legend()
-
 
         plt.savefig(save_path, dpi=200)
 

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import sympy as sp
 
 if __name__ == '__main__':
-    #-----------------------------------------  Cas 1 - Versteeg 4.2 ------------------------------------------------#
+    # %% --------------------------------------  Cas 1 - Versteeg 4.2 ------------------------------------------------#
     cas1_nom = 'Cas 1 - Versteeg 4.2'
     post_traitement1 = PostTraitement(cas1_nom)
 
@@ -42,6 +42,7 @@ if __name__ == '__main__':
         mesher = MeshGenerator()
         mesh_obj = mesher.rectangle([0.0, L, 0.0, 0.5*L], mesh_parameters)
 
+        # Création du cas 1 pour ce maillage
         cas1 = Case(mesh_obj, gamma=k, source_term=q, analytical_function=solution_function)
         cas1.compute_mesh_and_connectivity()
         cas1.set_bc(bcdata)
@@ -49,7 +50,6 @@ if __name__ == '__main__':
         solver = MethodeVolumesFinisDiffusion(cas1, cross_diffusion=True)
         solver.solve(matrix_type="DENSE")
         solver.solve(matrix_type="SPARSE")
-        solution, analytical = cas1.get_solutions()
 
         post_traitement1.set_data(cas1)
 
@@ -73,9 +73,8 @@ if __name__ == '__main__':
 
     # %% Comparaison Pour deux maillages différents
     # Maillage non Structuré
-    mesh_parameters = {'mesh_type': 'TRI',
-                           'Nx': 50,
-                           'Ny': 50
+    mesh_parameters = {'mesh_type': 'QUAD',
+                       'lc': L/65
                        }
     mesher = MeshGenerator()
     mesh_obj = mesher.rectangle([0.0, L, 0.0, 0.5 * L], mesh_parameters)
@@ -94,7 +93,7 @@ if __name__ == '__main__':
 
     # %% Comparaison Solution sans le cross diffusion et avec
     mesh_parameters = {'mesh_type': 'QUAD',
-                       'lc': L/6
+                       'lc': L/20
                        }
     mesher = MeshGenerator()
     mesh_obj = mesher.rectangle([0.0, L, 0.0, 0.5 * L], mesh_parameters)
@@ -116,10 +115,11 @@ if __name__ == '__main__':
     post_traitement1.show_mesh_differences(mesh1=[-2, "Effet du terme Cross-Diffusion"],
                                            mesh2=[-1, "Terme Cross Diffusion n'est pas Inclus"],
                                            title=f"Effet du terme Cross-Diffusion pour {cas1_nom}",
-                                           save_path="Comp_CD_1.png")
+                                           save_path="Comp_CD_1.png",
+                                           diff=True)
 
 
-    # --------------------------------------  Cas 2 - Oberkampf 6.4.1 ------------------------------------------------#
+    # %% -----------------------------------  Cas 2 - Oberkampf 6.4.1 ------------------------------------------------#
     cas2_nom = "Cas 2 - Oberkampf 6.4.1"
     post_traitement2 = PostTraitement(cas2_nom)
 
@@ -168,7 +168,6 @@ if __name__ == '__main__':
         solver = MethodeVolumesFinisDiffusion(cas2, cross_diffusion=True)
         solver.solve(matrix_type="DENSE")
         solver.solve(matrix_type="SPARSE")
-        solution, analytical = cas2.get_solutions()
 
         post_traitement2.set_data(cas2)
 
@@ -234,7 +233,8 @@ if __name__ == '__main__':
     post_traitement2.show_mesh_differences(mesh1=[-2, "Effet du terme Cross-Diffusion"],
                                            mesh2=[-1, "Terme Cross Diffusion n'est pas Inclus"],
                                            title=f"Effet du terme Cross-Diffusion pour {cas2_nom}",
-                                           save_path="Comp_CD_2.png")
+                                           save_path="Comp_CD_2.png",
+                                           diff=True)
 
 
     """# Affichage de champ scalaire avec pyvista du dernier maillage

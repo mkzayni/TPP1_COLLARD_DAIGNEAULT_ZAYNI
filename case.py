@@ -3,7 +3,6 @@ Date :    8 février 2022
 Auteurs : Audrey Collard-Daigneault (1920374) & Mohamad Karim Zayni (2167132)
 Utilité : TPP1 - Méthode des volumes finis avec diffusion
 
-
 """
 
 from meshConnectivity import MeshConnectivity
@@ -27,39 +26,41 @@ class Case:
     def set_bc(self, bcdata):
         self.bcdata = bcdata
 
-    # Enregistre la solution numérique et analytique puis l'aire des cellules
+    # Enregistre la solution numérique et analytique, l'aire et la position du centroides des éléments
     def set_solution(self, solution, analytical_solution, area, centroid):
         self.solution = solution
         self.analytical_solution = analytical_solution
         self.area = area
         self.centroid = centroid
 
-    # Enregistre les temps avec une sparse et dense matrice
+    # Enregistre les temps de résolution (Dense et/ou Sparse)
     def set_resolution_time(self, matrix_type, time):
         self.time[matrix_type] = time
 
-    # Permet d'obtenir le maillage du cas étudié
+    # Retourne le maillage du cas étudié
     def get_mesh(self):
         return self.mesh_obj
 
-    # Permet d'obtenir les conditions frontières
+    # Retourne les conditions frontières
     def get_bc(self):
         return self.bcdata
 
-    # Permet d'obtenir le coefficient diffusif
+    # Retourne le coefficient diffusif
     def get_gamma(self):
         return self.gamma
 
-    # Permet de retourner la fonction de la solution analytique
+    # Retourne la fonction de la solution analytique
     def get_analytical_function(self):
         return self.analytical_function
 
-    # Retourne la solution numérique et analytique puis l'aire des cellules
+    # Retourne la solution numérique et analytique
     def get_solutions(self):
         return self.solution, self.analytical_solution
 
+    # Retourne l'aire et la position des centroides des éléments
     def get_areas_and_centroids(self):
         return self.area, self.centroid
 
+    # Retourne le/les temps de résolution (Dense et/ou Sparse)
     def get_times(self):
         return self.time

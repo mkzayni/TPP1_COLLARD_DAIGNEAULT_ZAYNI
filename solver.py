@@ -53,24 +53,26 @@ class MethodeVolumesFinisDiffusion:
             compute_centroid_and_volume(i_elem)
 
     def solve(self, matrix_type="SPARSE"):
-        # Initialisation des matrices et du terme de cross-diffusion
+        # Initialisation des matrices et des vecteurs
         NELEM = self.mesh_obj.get_number_of_elements()
         A = np.zeros((NELEM, NELEM))
         B = np.zeros(NELEM)
         PHI = np.zeros(NELEM)
         PHI_EX = np.zeros(NELEM)
         GRAD = np.zeros((NELEM, 2))
+
+
         gamma = self.case.get_gamma()
-        Sdc = 0  # Cross-diffusion term reste nul si False
-        it = 1
-        time = timer()
 
-        solver_moindrescarres = GradientMoindresCarres(self.case)
-        solver_moindrescarres.set_centroids_and_volumes(self.centroids, self.volumes)
-
+        # Initialisation du terme de cross-diffusion, des itérations et du solver des moindres carrés
+        Sdc = 0  # Si cross-diffusion term désactivé, le terme reste nul
+        it = 1   # Si cross-diffusion terme désactivé, l'itération reste à 1
         if self.cross_diffusion is True:
             it = 3
+            solver_moindrescarres = GradientMoindresCarres(self.case)
+            solver_moindrescarres.set_centroids_and_volumes(self.centroids, self.volumes)
 
+        time = timer()  # Début du temps du chronomètre
 
         for i in range(it):
             # Calcule les distances et vecteurs nécessaires selon les coordonnées fournies
@@ -146,7 +148,6 @@ class MethodeVolumesFinisDiffusion:
 
                 D = (1 / PNKSI) * self.case.get_gamma() * (dA / dKSI)  # Direct gradient term
 
-                ###### Calculer le cross-diffusion term ici pour dirichlet ici...
                 # Calcule le terme correction de cross-diffusion si activé
                 if self.cross_diffusion is True:
                     Sdc = -gamma * (PKSIETA / PNKSI) * np.dot((GRAD[elements[1]] + GRAD[elements[0]]) / 2, eETA) * dA
@@ -167,36 +168,44 @@ class MethodeVolumesFinisDiffusion:
                 PHI_EX[i_elem] = self.case.get_analytical_function()(self.centroids[i_elem][0],
                                                                      self.centroids[i_elem][1])
 
-            # Résolution du problème suivant la méthode choisie pour mesurer le temps
+            # Résolution du problème suivant la méthode choisie pour le conditionnement de la matrice
             if matrix_type == "SPARSE":
                 PHI = linsolve.spsolve(sps.csr_matrix(A, dtype=np.float64), B)
             elif matrix_type == "DENSE":
                 PHI = np.linalg.solve(A, B)
 
-            solver_moindrescarres.set_phi(PHI)
-            GRAD = solver_moindrescarres.solve()
+            # Résout les gradients pas la méthode des moindres carrés si cross_diffusion activé
+            if self.cross_diffusion is True:
+                solver_moindrescarres.set_phi(PHI)
+                GRAD = solver_moindrescarres.solve()
 
+        # Ajoute la solution et les données d'aire et de positions au cas étudié
         self.case.set_solution(PHI, PHI_EX, self.volumes, self.centroids)
+
+        # Ajoute le temps de résolution au cas étudié
         time = timer() - time
         self.case.set_resolution_time(matrix_type, time)
 
 
+# Solveur utilisant la méthode des moindres carrés pour reconstruire le gradient
 class GradientMoindresCarres:
     def __init__(self, case):
         self.case = case                 # Cas à résoudre
         self.mesh_obj = case.get_mesh()  # Maillage du cas
         self.bcdata = case.get_bc()      # Types de conditions frontière
 
+    # Définis les positions des centroides et l'aire des éléments
     def set_centroids_and_volumes(self, centroids, volumes):
         self.centroids = centroids
         self.volumes = volumes
 
+    # Définis les valeurs calculées au centre des éléments
     def set_phi(self, phi):
         self.phi = phi
 
     # Calcule le gradient du cas étudié
     def solve(self):
-        # Itinitialisation des matrices
+        # Initialisation des matrices
         NTRI = self.mesh_obj.get_number_of_elements()
         ATA = np.zeros((NTRI, 2, 2))
         B = np.zeros((NTRI, 2))
@@ -207,37 +216,36 @@ class GradientMoindresCarres:
             bc_type, bc_value = self.bcdata[tag]  # Condition frontière (Dirichlet ou Neumann)
             element = self.mesh_obj.get_face_to_elements(i_face)[0]  # Élément de la face
 
-            # Si Dirichlet ou Neumann
             # Détermination des positions des points et de la distance
-
             nodes = self.mesh_obj.get_face_to_nodes(i_face)
             xa = (self.mesh_obj.get_node_to_xycoord(nodes[0])[0] + self.mesh_obj.get_node_to_xycoord(nodes[1])[0]) / 2.
             ya = (self.mesh_obj.get_node_to_xycoord(nodes[0])[1] + self.mesh_obj.get_node_to_xycoord(nodes[1])[1]) / 2.
             xb, yb = self.centroids[element][0], self.centroids[element][1]
             dx, dy = xb - xa, yb - ya
 
-            # Calcul du gradient
             if bc_type == 'DIRICHLET':
+                # Calcul la différence des phi entre le point au centre de la face et au centre de l'élément
                 dphi = bc_value(xa, ya) - self.phi[element]
 
-            # Modification de la position du point sur l'arête si Neumann
             if bc_type == 'NEUMANN':
-                nodes = self.mesh_obj.get_face_to_nodes(i_face)
+                # Modification de la position du point sur la face si Neumann
                 (xa, ya), (xb, yb) = self.mesh_obj.get_node_to_xycoord(nodes[0]), self.mesh_obj.get_node_to_xycoord(
                     nodes[1])
                 dA = np.sqrt((xb - xa) ** 2 + (yb - ya) ** 2)
                 n = np.array([(yb - ya) / dA, -(xb - xa) / dA])
-
                 dx, dy = np.dot([dx, dy], n) * n
+
+                # Application de la condition frontière au point sur la face perpendiculaire au point central
                 dphi = np.dot([dx, dy], n) * bc_value(xa, ya)
 
+            # Remplissage de la matrice ATA
             ALS = np.array([[dx * dx, dx * dy], [dy * dx, dy * dy]])
             ATA[element] += ALS
 
             # Remplisage du membre de droite
             B[element] += (np.array([dx, dy]) * dphi)
 
-        # Internal faces
+        # Remplissage des matrices pour les faces internes
         for i_face in range(self.mesh_obj.get_number_of_boundary_faces(), self.mesh_obj.get_number_of_faces()):
             elements = self.mesh_obj.get_face_to_elements(i_face)
             dx, dy = self.centroids[elements[1]] - self.centroids[elements[0]]
@@ -252,6 +260,7 @@ class GradientMoindresCarres:
             B[elements[0]] += (np.array([dx, dy]) * dphi)
             B[elements[1]] += (np.array([dx, dy]) * dphi)
 
+        # Résolution des systèmes matriciels pour tous les éléments
         ATAI = np.array([np.linalg.inv(ATA[i_tri]) for i_tri in range(NTRI)])
         GRAD = np.array([np.dot(ATAI[i_tri], B[i_tri]) for i_tri in range(NTRI)])
 
