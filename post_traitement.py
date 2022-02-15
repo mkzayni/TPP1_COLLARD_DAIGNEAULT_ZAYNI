@@ -9,12 +9,41 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 
 class PostTraitement:
+    """
+    Effectuer le post_traitement après la résolution du problème.
+
+    Parmeters
+    ---------
+    exempmle: case
+        L'exemple en cours de traitement
+
+
+    Attributes
+    ----------
+    data: dictionniare
+        Dictionnaire qui comporte toutes les données de nécessaire
+        pour effectuer le post-traitement.
+
+    """
     def __init__(self, exemple):
         self.exemple = exemple  # Nom de l'exemple post-traité
         self.data = []          # Initialisation du dictionnaire de données
 
     # Ajoute les données selon un nombre d'éléments'
     def set_data(self, case):
+        """
+        Modifier les données de l'exemple traité.
+
+        Parameters
+        ----------
+        case: case
+            Exemple Traité. 
+
+        Returns
+        -------
+        None
+
+        """
         self.data.append({'n': case.get_mesh().get_number_of_elements(),
                           'phi_num': case.get_solutions()[0],
                           'phi_exact': case.get_solutions()[1],
@@ -24,6 +53,26 @@ class PostTraitement:
 
     # Génère les graphiques des solutions numérique et analytique
     def show_solutions(self, mesh, title, save_path):
+        """
+        Affichage des graphiques qui montrent la différence entre la solution
+        numérique et la solution analytique
+
+        Parameters
+        ----------
+        mesh: mesh
+            Maillage de l'exemple traité. 
+        
+        title: str
+            Nom du document pour le sauvegarder
+            
+        save_path: str
+            Nom du fichier de sauvegarde
+
+        Returns
+        -------
+        None
+
+        """
         Figure1, (NUM, EX) = plt.subplots(1, 2, figsize=(20, 8))
 
         Figure1.suptitle(title + f" avec {self.data[mesh]['n']} éléments")
@@ -53,6 +102,32 @@ class PostTraitement:
         plt.savefig(save_path, dpi=200)
 
     def show_plan_solutions(self, mesh, title, save_path, X_Coupe, Y_Coupe):
+        
+        """
+        Affichage des graphiques qui montrent les résultats dans des coupes 
+        en X ou en Y
+
+        Parameters
+        ----------
+        mesh: mesh
+            Maillage de l'exemple traité. 
+        
+        title: str
+            Nom du document pour le sauvegarder
+            
+        save_path: str
+            Nom du fichier de sauvegarde
+            
+        X_coupe: float
+            L'endroit de la coupe suivant la droite X=X_coupe
+
+        Y_coupe: float
+            L'endroit de la coupe suivant la droite Y=Y_coupe
+        Returns
+        -------
+        None
+
+        """
         # Chercher l'indice des éléments à un X ou Y donné
         def Coupe_X(Coordonnees, X, Solution, Analytique, Plan):
             Elements_ds_coupe = []
@@ -97,7 +172,31 @@ class PostTraitement:
         plt.savefig(save_path, dpi=200)
 
     def show_mesh_differences(self, mesh1, mesh2, title, save_path, diff=False):
+        """
+        Affichage des graphiques qui montrent les résultats entre deux types
+        de maillage
 
+        Parameters
+        ----------
+        mesh1: mesh
+            Maillage 1 de l'exemple traité. 
+        
+        mesh2: mesh
+            Maillage 2 de l'exemple traité. 
+        
+        title: str
+            Nom du document pour le sauvegarder
+            
+        save_path: str
+            Nom du fichier de sauvegarde
+            
+        diff: Bool
+            Pour décider si on trace la différence (Erreur)  entre les deux maillages. 
+        Returns
+        -------
+        None
+
+        """
         if diff is True:
             figure, (plot1, plot2, plot3) = plt.subplots(1, 3, figsize=(28, 6))
         else:
@@ -138,6 +237,24 @@ class PostTraitement:
         plt.savefig(save_path, dpi=200)
 
     def show_time(self, title, save_path):
+        """
+        Affichage des graphiques qui montre le temps de calcul entre les
+        deux méthodes Sparse et Dense
+
+        Parameters
+        ----------
+        
+        title: str
+            Nom du document pour le sauvegarder
+            
+        save_path: str
+            Nom du fichier de sauvegarde
+            
+        Returns
+        -------
+        None
+
+        """
         Figure1, (Comp) = plt.subplots(figsize=(15, 10))
 
         Figure1.suptitle(title)
@@ -160,6 +277,19 @@ class PostTraitement:
         plt.savefig(save_path, dpi=200)
 
     def show_error(self):
+        """
+        Affichage des graphiques d'ordre de convergence et calcul de l'erreur
+        par rapport au solution exacte. 
+
+        Parameters
+        ----------
+        None
+            
+        Returns
+        -------
+        None
+
+        """
         # Calcul l'erreur (en x), l'ajoute aux données et détermine l'ordre de convergence
         for i in range(len(self.data)):
             total_area = np.sum(self.data[i]['area'])
